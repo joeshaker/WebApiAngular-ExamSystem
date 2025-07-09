@@ -1,25 +1,25 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using WebApiAngular.Models;
 using WebApiAngular.DataSeeding;
 using WebApiAngular.DbContexts;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace WebApiAngular
 {
     public class Program
     {
-        public static async Task Main(string[] args) // Changed to async Task
+        public static async Task Main(string[] args)
         {
-            string MyAllowSpecificOrigins = "";
+            string MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
-            //Add Cors to open in another browser
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy(MyAllowSpecificOrigins,
@@ -30,18 +30,16 @@ namespace WebApiAngular
                     builder.AllowAnyHeader();
                 });
             });
+
             builder.Services.AddOpenApi();
 
-            // DbContext configuration
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("default")));
 
-            // Identity configuration
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
-            // JWT Authentication
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -58,33 +56,45 @@ namespace WebApiAngular
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                        var jti = context.Principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+
+                        if (await dbContext.RevokedTokens.AnyAsync(t => t.Jti == jti))
+                        {
+                            context.Fail("This token has been revoked.");
+                        }
+                    }
+                };
             });
 
             builder.Services.AddEndpointsApiExplorer();
 
             var app = builder.Build();
 
-            // Seed data (async/await now works)
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
                 await SeedData.Initialize(services);
             }
 
-            // Configure HTTP pipeline
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
                 app.UseSwaggerUI(op => op.SwaggerEndpoint("/openapi/v1.json", "v1"));
             }
 
-            // Middleware order is important!
             app.UseHttpsRedirection();
-            app.UseAuthentication(); // Must come before UseAuthorization
+            app.UseCors(MyAllowSpecificOrigins);
+            app.UseAuthentication();
             app.UseAuthorization();
             app.MapControllers();
 
-            await app.RunAsync(); // Changed to await
+            await app.RunAsync();
         }
     }
 }

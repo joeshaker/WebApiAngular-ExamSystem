@@ -69,6 +69,36 @@ public class ExamsController : ControllerBase
 
         return Ok(response);
     }
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var exams = await _context.Exams
+            .Include(e => e.Questions)
+                .ThenInclude(q => q.Options)
+            .Select(e => new ExamResponseDto
+            {
+                Id = e.Id,
+                Title = e.Title,
+                Description = e.Description,
+                DurationMinutes = e.DurationMinutes,
+                Questions = e.Questions.Select(q => new QuestionResponseDto
+                {
+                    Id = q.Id,
+                    Text = q.Text,
+                    Type = q.Type,
+                    Points = q.Points,
+                    Options = q.Options.Select(o => new OptionResponseDto
+                    {
+                        Id = o.Id,
+                        Text = o.Text,
+                        IsCorrect = o.IsCorrect
+                    }).ToList()
+                }).ToList()
+            })
+            .ToListAsync();
+
+        return Ok(exams);
+    }
 
 
     [HttpPut("{id}")]

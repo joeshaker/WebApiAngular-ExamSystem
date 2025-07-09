@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using WebApiAngular.DtoModel;
 using WebApiAngular.Models;
 
 namespace WebApiAngular.DbContexts
@@ -16,9 +17,14 @@ namespace WebApiAngular.DbContexts
         public DbSet<Result> Results { get; set; }
         public DbSet<Answer> Answers { get; set; }
 
+        public DbSet<RevokedToken> RevokedTokens { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.Entity<RevokedToken>()
+            .HasKey(rt => rt.Id);
 
             // Exam relationships
             builder.Entity<Exam>()
