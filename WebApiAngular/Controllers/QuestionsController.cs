@@ -93,4 +93,37 @@ public class QuestionsController : ControllerBase
 
         return Ok(responseDto);
     }
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateQuestion(int examId, int id, QuestionDto questionDto)
+    {
+        var question = await _context.Questions
+            .Include(q => q.Options)
+            .FirstOrDefaultAsync(q => q.Id == id && q.ExamId == examId);
+        if (question == null)
+            return NotFound();
+        question.Text = questionDto.Text;
+        question.Type = questionDto.Type;
+        question.Points = questionDto.Points;
+        foreach (var option in question.Options)
+        {
+            var optionDto = questionDto.Options.FirstOrDefault(o => o.Text == option.Text);
+            if (optionDto != null)
+            {
+                option.IsCorrect = optionDto.IsCorrect;
+                option.Text = optionDto.Text;
+            }
+        }
+        foreach (var optionDto in questionDto.Options.Where(o => !question.Options.Any(qo => qo.Text == o.Text)))
+        {
+            var newOption = new Option
+            {
+                Text = optionDto.Text,
+                IsCorrect = optionDto.IsCorrect,
+                QuestionId = question.Id
+            };
+            _context.Options.Add(newOption);
+        }
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
 }
