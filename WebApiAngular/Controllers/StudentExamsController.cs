@@ -22,7 +22,31 @@ public class StudentExamsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAvailableExams()
     {
-        var exams = await _context.Exams.ToListAsync();
+        var exams = await _context.Exams
+            .Include(e => e.Questions)
+                .ThenInclude(q => q.Options)
+            .Select(e => new ExamResponseDto
+            {
+                Id = e.Id,
+                Title = e.Title,
+                Description = e.Description,
+                DurationMinutes = e.DurationMinutes,
+                Questions = e.Questions.Select(q => new QuestionResponseDto
+                {
+                    Id = q.Id,
+                    Text = q.Text,
+                    Type = q.Type,
+                    Points = q.Points,
+                    Options = q.Options.Select(o => new OptionResponseDto
+                    {
+                        Id = o.Id,
+                        Text = o.Text,
+                        IsCorrect = o.IsCorrect
+                    }).ToList()
+                }).ToList()
+            })
+            .ToListAsync();
+
         return Ok(exams);
     }
 
@@ -46,6 +70,48 @@ public class StudentExamsController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(new { resultId = result.Id });
     }
+
+    [HttpGet("results/{resultId}")]
+    public async Task<IActionResult> GetExamByResultId(int resultId)
+    {
+        var result = await _context.Results
+            .Include(r => r.Exam)
+                .ThenInclude(e => e.Questions)
+                    .ThenInclude(q => q.Options)
+            .FirstOrDefaultAsync(r => r.Id == resultId);
+
+        if (result == null)
+            return NotFound();
+
+        // Ensure the requesting user owns the result
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (result.UserId != userId)
+            return Forbid();
+
+        var exam = result.Exam;
+
+        return Ok(new ExamResponseDto
+        {
+            Id = exam.Id,
+            Title = exam.Title,
+            Description = exam.Description,
+            DurationMinutes = exam.DurationMinutes,
+            Questions = exam.Questions.Select(q => new QuestionResponseDto
+            {
+                Id = q.Id,
+                Text = q.Text,
+                Type = q.Type,
+                Points = q.Points,
+                Options = q.Options.Select(o => new OptionResponseDto
+                {
+                    Id = o.Id,
+                    Text = o.Text,
+                    IsCorrect = o.IsCorrect // Optional: you might want to hide this for students
+                }).ToList()
+            }).ToList()
+        });
+    }
+
 
     [HttpPost("results/{resultId}/submit")]
     public async Task<IActionResult> SubmitExam(int resultId, List<AnswerSubmissionDto> answers)
@@ -88,4 +154,29 @@ public class StudentExamsController : ControllerBase
 
         return Ok(new { score = result.Score, total = result.TotalPoints });
     }
+
+    [HttpGet("results")]
+    public async Task<IActionResult> GetAllResults()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        var results = await _context.Results
+            .Where(r => r.UserId == userId)
+            .Include(r => r.Exam)
+            .Select(r => new
+            {
+                r.Id,
+                r.ExamId,
+                ExamTitle = r.Exam.Title,
+                r.Score,
+                r.TotalPoints,
+                r.StartTime,
+                r.EndTime
+            })
+            .ToListAsync();
+
+        return Ok(results);
+    }
+
+
 }
