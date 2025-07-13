@@ -65,19 +65,19 @@ namespace WebApiAngular.DbContexts
                 .HasOne(a => a.Result)
                 .WithMany(r => r.Answers)
                 .HasForeignKey(a => a.ResultId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed from Cascade to Restrict
+                .OnDelete(DeleteBehavior.NoAction); // Changed from Cascade to Restrict
 
             builder.Entity<Answer>()
                 .HasOne(a => a.Question)
                 .WithMany()
                 .HasForeignKey(a => a.QuestionId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed from Cascade to Restrict
+                .OnDelete(DeleteBehavior.NoAction); // Changed from Cascade to Restrict
 
             builder.Entity<Answer>()
                 .HasOne(a => a.SelectedOption)
                 .WithMany()
                 .HasForeignKey(a => a.SelectedOptionId)
-                .OnDelete(DeleteBehavior.Restrict); // Changed from Cascade to Restrict
+                .OnDelete(DeleteBehavior.Cascade); // Changed from Cascade to Restrict
         }
 
 
