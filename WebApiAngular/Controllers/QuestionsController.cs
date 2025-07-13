@@ -126,4 +126,24 @@ public class QuestionsController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteQuestion(int examId, int id)
+    {
+        var question = await _context.Questions
+            .Include(q => q.Options)
+            .FirstOrDefaultAsync(q => q.Id == id && q.ExamId == examId);
+        if (question == null)
+            return NotFound();
+        _context.Questions.Remove(question);
+        _context.Options.RemoveRange(question.Options);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+    // get number of questions in an exam
+    [HttpGet("count")]
+    public async Task<IActionResult> GetQuestionCount(int examId)
+    {
+        var count = await _context.Questions.CountAsync(q => q.ExamId == examId);
+        return Ok(new { Count = count });
+    }
 }
