@@ -41,4 +41,20 @@ public class ResultsController : ControllerBase
 
         return Ok(results);
     }
+    // result persentage calculation
+    [HttpGet("exam/{examId}/percentage")]
+    public async Task<IActionResult> GetExamResultPercentage(int examId)
+    {
+        var results = await _context.Results
+            .Where(r => r.ExamId == examId)
+            .ToListAsync();
+        if (results.Count == 0)
+            return NotFound("No results found for this exam.");
+        var totalPoints = results.Sum(r => r.TotalPoints);
+        var maxPoints = results.Sum(r => 90);
+        if (maxPoints == 0)
+            return Ok(new { Percentage = 0 });
+        var percentage = (double)totalPoints / maxPoints * 100;
+        return Ok(new { Percentage = percentage });
+    }
 }

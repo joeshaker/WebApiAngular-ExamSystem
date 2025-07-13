@@ -125,4 +125,10 @@ public class ExamsController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+    [HttpGet("count")]
+    public async Task<IActionResult> GetExamCount()
+    {
+        var count = await _context.Exams.CountAsync();
+        return Ok(new { Count = count });
+    }
 }
